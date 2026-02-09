@@ -31,3 +31,4 @@ jobs:
 
     - name: Run tests
       run: uv run pytest tests fracridge --cov-report term-missing --cov=fracridge --doctest-modules
+
