@@ -22,11 +22,11 @@ jobs:
       uses: astral-sh/setup-uv@v7
 
     - name: Install the project
-      run: uv sync --locked --all-extras --dev
+      run: uv pip install .[dev]
 
-    - name: Lint with flake8
+    - name: Lint with ruff
       run: |
-        flake8 --ignore N802,N806,W503 --select W504 `find . -name \*.py | grep -v setup.py | grep -v version.py | grep -v __init__.py | grep -v /docs/`
+        ruff check .
 
     - name: Run tests
       run: uv run pytest tests
