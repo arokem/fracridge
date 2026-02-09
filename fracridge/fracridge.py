@@ -1,21 +1,16 @@
-"""
+""" """
 
-"""
-from random import sample
+import warnings
+
 import numpy as np
 from numpy import interp
-import warnings
-import collections
-
 from sklearn.base import BaseEstimator, MultiOutputMixin
-from sklearn.utils.validation import (
-    validate_data,
-    check_is_fitted,
-    _check_sample_weight,
-    )
-from sklearn.linear_model._base import _preprocess_data, _rescale_data
-
+from sklearn.linear_model._base import _preprocess_data
 from sklearn.model_selection import GridSearchCV
+from sklearn.utils.validation import (
+    check_is_fitted,
+    validate_data,
+)
 
 # Module-wide constants
 BIG_BIAS = 10e3
@@ -23,8 +18,7 @@ SMALL_BIAS = 10e-3
 BIAS_STEP = 0.2
 
 
-__all__ = ["fracridge", "vec_len", "FracRidgeRegressor",
-           "FracRidgeRegressorCV"]
+__all__ = ["fracridge", "vec_len", "FracRidgeRegressor", "FracRidgeRegressorCV"]
 
 
 def _do_svd(X, y, jit=True):
@@ -41,25 +35,30 @@ def _do_svd(X, y, jit=True):
         try:
             from ._linalg import svd
         except ImportError:
-            warnings.warn("The `jit` key-word argument is set to `True` "\
-                          "but numba could not be imported, or just-in time "\
-                          "compilation failed. Falling back to "\
-                          "`scipy.linalg.svd`")
+            warnings.warn(
+                "The `jit` key-word argument is set to `True` "
+                "but numba could not be imported, or just-in time "
+                "compilation failed. Falling back to "
+                "`scipy.linalg.svd`",
+                stacklevel=1,
+            )
             use_scipy = True
 
     # If that doesn't work, or you asked not to, we'll use scipy SVD:
     if not jit or use_scipy:
         from functools import partial
+
         from scipy.linalg import svd  # noqa
+
         svd = partial(svd, full_matrices=False)
 
     if X.shape[0] > X.shape[1]:
         uu, ss, v_t = svd(X.T @ X)
         selt = np.sqrt(ss)
         if y.shape[-1] >= X.shape[0]:
-            ynew = (np.diag(1./selt) @ v_t @ X.T) @ y
+            ynew = (np.diag(1.0 / selt) @ v_t @ X.T) @ y
         else:
-            ynew = np.diag(1./selt) @ v_t @ (X.T @ y)
+            ynew = np.diag(1.0 / selt) @ v_t @ (X.T @ y)
 
     else:
         # This rotates the targets by the unitary matrix uu.T:
@@ -99,7 +98,8 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
     -------
     coef : ndarray, shape (p, f, b)
         The full estimated parameters across units of measurement for every
-        desired fraction. If fracs is a float or y is a vector, the second or third dimensions are squeezed, correspondingly.
+        desired fraction. If fracs is a float or y is a vector, the second or
+        third dimensions are squeezed, correspondingly.
     alphas : ndarray, shape (f, b)
         The alpha coefficients associated with each solution
 
@@ -134,13 +134,15 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
     0.0
     """
     if fracs is None:
-        fracs = np.arange(.1, 1.1, .1)
+        fracs = np.arange(0.1, 1.1, 0.1)
 
     fracs_is_vector = hasattr(fracs, "__len__")
     if fracs_is_vector:
         if np.any(np.diff(fracs) < 0):
-            raise ValueError("The `frac` inputs to the `fracridge` function ",
-                             f"must be sorted. You provided: {fracs}")
+            raise ValueError(
+                "The `frac` inputs to the `fracridge` function ",
+                f"must be sorted. You provided: {fracs}",
+            )
     else:
         fracs = [fracs]
     fracs = np.array(fracs)
@@ -159,7 +161,7 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
     # Set solutions for small eigenvalues to 0 for all targets:
     isbad = selt < tol
     if np.any(isbad):
-        warnings.warn("Some eigenvalues are being treated as 0")
+        warnings.warn("Some eigenvalues are being treated as 0", stacklevel=1)
 
     ols_coef[isbad, ...] = 0
 
@@ -170,9 +172,12 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
 
     # Generates the grid of candidate alphas used in interpolation:
     alphagrid = np.concatenate(
-        [np.array([0]),
-         10 ** np.arange(np.floor(np.log10(val2)),
-                         np.ceil(np.log10(val1)), BIAS_STEP)])
+        [
+            np.array([0]),
+            10
+            ** np.arange(np.floor(np.log10(val2)), np.ceil(np.log10(val1)), BIAS_STEP),
+        ]
+    )
 
     # The scaling factor applied to coefficients in the rotated space is
     # lambda**2 / (lambda**2 + alpha), where lambda are the singular values
@@ -192,10 +197,10 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
     # The main loop is over targets:
     for ii in range(y.shape[-1]):
         # Applies the scaling factors per alpha
-        newlen = np.sqrt(sclg_sq @ ols_coef[..., ii]**2).T
+        newlen = np.sqrt(sclg_sq @ ols_coef[..., ii] ** 2).T
         # Normalize to the length of the unregularized solution,
         # because (alphagrid[0] == 0)
-        newlen = (newlen / newlen[0])
+        newlen = newlen / newlen[0]
         # Perform interpolation in a log transformed space (so it behaves
         # nicely), avoiding log of 0.
         temp = interp(fracs, newlen[::-1], np.log(1 + alphagrid)[::-1])
@@ -211,8 +216,7 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
 
     # After iterating over all targets, we unrotate using the unitary v
     # matrix and reshape to conform to desired output:
-    coef = np.reshape(v_t.T @ coef.reshape((first_dim, ff * bb)),
-                      (pp, ff, bb))
+    coef = np.reshape(v_t.T @ coef.reshape((first_dim, ff * bb)), (pp, ff, bb))
     if single_target:
         coef = coef.squeeze(2)
     if not fracs_is_vector:
@@ -283,12 +287,14 @@ class FracRidgeRegressor(MultiOutputMixin, BaseEstimator):
     >>> print(np.linalg.norm(coef_) / np.linalg.norm(coef)) # doctest: +NUMBER
     0.29
     """
+
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
         return tags
 
-    def __init__(self, fracs=None, fit_intercept=False,
-                 copy_X=True, tol=1e-10, jit=True):
+    def __init__(
+        self, fracs=None, fit_intercept=False, copy_X=True, tol=1e-10, jit=True
+    ):
         self.fracs = fracs
         self.fit_intercept = fit_intercept
         self.copy_X = copy_X
@@ -312,12 +318,9 @@ class FracRidgeRegressor(MultiOutputMixin, BaseEstimator):
         return X, y, X_offset, y_offset, X_scale
 
     def fit(self, X, y):
+        X, y, X_offset, y_offset, X_scale = self._validate_input(X, y)
 
-        X, y, X_offset, y_offset, X_scale = self._validate_input(
-            X, y)
-
-        coef, alpha = fracridge(X, y, fracs=self.fracs, tol=self.tol,
-                                jit=self.jit)
+        coef, alpha = fracridge(X, y, fracs=self.fracs, tol=self.tol, jit=self.jit)
         self.alpha_ = alpha
         self.coef_ = coef
         self._set_intercept(X_offset, y_offset, X_scale)
@@ -328,7 +331,7 @@ class FracRidgeRegressor(MultiOutputMixin, BaseEstimator):
 
     def predict(self, X):
         X = validate_data(self, X, reset=False, accept_sparse=True)
-        check_is_fitted(self, 'is_fitted_')
+        check_is_fitted(self, "is_fitted_")
         if len(self.coef_.shape) == 0:
             pred_coef = self.coef_[np.newaxis]
         else:
@@ -339,8 +342,7 @@ class FracRidgeRegressor(MultiOutputMixin, BaseEstimator):
         return pred
 
     def _set_intercept(self, X_offset, y_offset, X_scale):
-        """Set the intercept_
-        """
+        """Set the intercept_"""
         if self.fit_intercept:
             if len(self.coef_.shape) <= 1:
                 self.coef_ = self.coef_ / X_scale
@@ -348,16 +350,16 @@ class FracRidgeRegressor(MultiOutputMixin, BaseEstimator):
                 self.coef_ = self.coef_ / X_scale[:, np.newaxis]
             elif len(self.coef_.shape) == 3:
                 self.coef_ = self.coef_ / X_scale[:, np.newaxis, np.newaxis]
-            self.intercept_ = y_offset - np.tensordot(X_offset,
-                                                      self.coef_, axes=(0,0))
+            self.intercept_ = y_offset - np.tensordot(X_offset, self.coef_, axes=(0, 0))
         else:
-            self.intercept_ = 0.
+            self.intercept_ = 0.0
 
     def score(self, X, y):
         """
         Score the fracridge fit
         """
         from sklearn.metrics import r2_score
+
         y_pred = self.predict(X)
         if len(y_pred.shape) > len(y.shape):
             y = y[..., np.newaxis]
@@ -419,12 +421,20 @@ class FracRidgeRegressorCV(FracRidgeRegressor):
     FracRidgeRegressorCV()
     >>> print(frcv.best_frac_)
     0.1
-    """
-    def __init__(self, fit_intercept=False,
-                 copy_X=True, tol=1e-10, jit=True, cv=None, scoring=None):
+    """  # noqa E501
 
-        super().__init__(self, fit_intercept=fit_intercept,
-                         copy_X=copy_X, tol=tol, jit=jit)
+    def __init__(
+        self,
+        fit_intercept=False,
+        copy_X=True,
+        tol=1e-10,
+        jit=True,
+        cv=None,
+        scoring=None,
+    ):
+        super().__init__(
+            self, fit_intercept=fit_intercept, copy_X=copy_X, tol=tol, jit=jit
+        )
         self.cv = cv
         self.scoring = scoring
 
@@ -438,15 +448,19 @@ class FracRidgeRegressorCV(FracRidgeRegressor):
         X, y, _, _, _ = self._validate_input(X, y)
 
         if frac_grid is None:
-            frac_grid = np.arange(.1, 1.1, .1)
-        parameters = {'fracs': frac_grid}
+            frac_grid = np.arange(0.1, 1.1, 0.1)
+        parameters = {"fracs": frac_grid}
         gs = GridSearchCV(
-                FracRidgeRegressor(
-                    fit_intercept=self.fit_intercept,
-                    copy_X=self.copy_X,
-                    tol=self.tol,
-                    jit=self.jit),
-                parameters, cv=self.cv, scoring=self.scoring)
+            FracRidgeRegressor(
+                fit_intercept=self.fit_intercept,
+                copy_X=self.copy_X,
+                tol=self.tol,
+                jit=self.jit,
+            ),
+            parameters,
+            cv=self.cv,
+            scoring=self.scoring,
+        )
 
         gs.fit(X, y)
         estimator = gs.best_estimator_
