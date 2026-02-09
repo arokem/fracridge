@@ -54,20 +54,20 @@ def _do_svd(X, y, jit=True):
 
     if X.shape[0] > X.shape[1]:
         uu, ss, v_t = svd(X.T @ X)
-        selt = np.sqrt(ss)
+        eig = np.sqrt(ss)
         if y.shape[-1] >= X.shape[0]:
-            ynew = (np.diag(1.0 / selt) @ v_t @ X.T) @ y
+            ynew = (np.diag(1.0 / eig) @ v_t @ X.T) @ y
         else:
-            ynew = np.diag(1.0 / selt) @ v_t @ (X.T @ y)
+            ynew = np.diag(1.0 / eig) @ v_t @ (X.T @ y)
 
     else:
         # This rotates the targets by the unitary matrix uu.T:
-        uu, selt, v_t = svd(X)
+        uu, eig, v_t = svd(X)
         ynew = uu.T @ y
 
-    ols_coef = (ynew.T / selt).T
+    ols_coef = (ynew.T / eig).T
 
-    return selt, v_t, ols_coef
+    return eig, v_t, ols_coef
 
 
 def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
@@ -156,18 +156,18 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
     ff = fracs.shape[0]
 
     # Calculate the rotation of the data
-    selt, v_t, ols_coef = _do_svd(X, y, jit=jit)
+    eig, v_t, ols_coef = _do_svd(X, y, jit=jit)
 
     # Set solutions for small eigenvalues to 0 for all targets:
-    isbad = selt < tol
+    isbad = eig < tol
     if np.any(isbad):
         warnings.warn("Some eigenvalues are being treated as 0", stacklevel=1)
 
     ols_coef[isbad, ...] = 0
 
     # Limits on the grid of candidate alphas used for interpolation:
-    val1 = BIG_BIAS * selt[0] ** 2
-    val2 = SMALL_BIAS * selt[-1] ** 2
+    val1 = BIG_BIAS * eig[0] ** 2
+    val2 = SMALL_BIAS * eig[-1] ** 2
     val2 = SMALL_BIAS if val2 == 0 else val2
 
     # Generates the grid of candidate alphas used in interpolation:
@@ -181,8 +181,8 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
 
     # The scaling factor applied to coefficients in the rotated space is
     # lambda**2 / (lambda**2 + alpha), where lambda are the singular values
-    seltsq = selt**2
-    sclg = seltsq / (seltsq + alphagrid[:, None])
+    eigsq = eig**2
+    sclg = eigsq / (eigsq + alphagrid[:, None])
     sclg_sq = sclg**2
 
     # Prellocate the solution:
@@ -209,7 +209,7 @@ def fracridge(X, y, fracs=None, tol=1e-10, jit=True):
         # Allocate the alphas for this target:
         alphas[:, ii] = targetalphas
         # Calculate the new scaling factor, based on the interpolated alphas:
-        sc = seltsq / (seltsq + targetalphas[np.newaxis].T)
+        sc = eigsq / (eigsq + targetalphas[np.newaxis].T)
         # Use the scaling factor to calculate coefficients in the rotated
         # space:
         coef[..., ii] = (sc * ols_coef[..., ii]).T
