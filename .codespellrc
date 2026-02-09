@@ -1,3 +1,2 @@
 [codespell]
 skip = [setup.cfg] 
-ignore-words-list = selt
