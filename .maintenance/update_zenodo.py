@@ -17,7 +17,7 @@ from pathlib import Path
 from fuzzywuzzy import fuzz, process
 
 # These ORCIDs should go last
-CREATORS_LAST = ["Yeatman, Jason", "Rokem, Ariel"]
+CREATORS_LAST = ["Kay, Kendrick", "Rokem, Ariel"]
 # for entries not found in line-contributions
 MISSING_ENTRIES = []
 
