@@ -5,3 +5,27 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 write_to = "fracridge/version.py"
 local_scheme = "no-local-version"
+
+[tool.ruff]
+target-version = "py312"
+exclude = ["docs/conf.py",
+           "docs/_templates/numpydoc_docstring.py",
+           "examples/"]
+
+[tool.ruff.lint]
+select = [
+  "F",
+  "E",
+  "C",
+  "W",
+  "B",
+  "I",
+]
+ignore = [
+  "B905",
+  "C901",
+  "E203",
+  "F821",
+  "B021",
+  "C408"
+]

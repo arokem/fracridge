@@ -1,4 +1,3 @@
-
 """
 This code is taken from the hyperlearn library: https://github.com/danielhanchen/hyperlearn/
 
@@ -36,10 +35,11 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-from . import _numba as numba
-from ._numba import njit, USE_NUMBA, sign, arange
 import numpy as np
 from scipy.linalg import lapack as get_lapack_funcs
+
+from . import _numba as numba
+from ._numba import USE_NUMBA, arange, sign
 
 
 def svd_flip(U, VT, U_decision=True):
@@ -54,12 +54,11 @@ def svd_flip(U, VT, U_decision=True):
     else:
         # rows of v, columns of u
         max_abs_rows = abs(VT).argmax(1)
-        signs = sign( VT[arange(VT.shape[0]), max_abs_rows])
+        signs = sign(VT[arange(VT.shape[0]), max_abs_rows])
 
     U *= signs
     VT *= signs[:, np.newaxis]
     return U, VT
-
 
 
 def svd(X, fast=True, U_decision=False, transpose=True):
@@ -93,7 +92,7 @@ def svd(X, fast=True, U_decision=False, transpose=True):
         X, U_decision = X.T, not U_decision
 
     n, p = X.shape
-    ratio = p/n
+    ratio = p / n
     #### TO DO: If memory usage exceeds LWORK, use GESVD
     if ratio >= 0.001:
         if USE_NUMBA:
@@ -109,5 +108,3 @@ def svd(X, fast=True, U_decision=False, transpose=True):
     if transpose:
         return VT.T, S, U.T
     return U, S, VT
-
-

@@ -12,10 +12,9 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
+import sys
 
-import sphinx_gallery
 import sphinx_rtd_theme
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -50,8 +49,10 @@ matlab_src_dir = '../matlab'
 numpydoc_show_class_members = False
 
 # pngmath / imgmath compatibility layer for different sphinx versions
-import sphinx
 from distutils.version import LooseVersion
+
+import sphinx
+
 if LooseVersion(sphinx.__version__) < LooseVersion('1.4'):
     extensions.append('sphinx.ext.pngmath')
 else:
@@ -95,6 +96,7 @@ author = 'Kendrick Kay and Ariel Rokem'
 #
 # The short X.Y version.
 from fracridge import __version__
+
 version = __version__
 # The full version, including alpha/beta/rc tags.
 release = __version__
